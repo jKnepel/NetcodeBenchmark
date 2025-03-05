@@ -11,15 +11,15 @@ from benchmark_harness import BenchmarkHarnessNetwork, BenchmarkHarnessBase
 
 def main():
     PROCESS_PATHS = [
-        #r"../Projects/ProteusNet/Builds/Benchmark.exe",
-        #r"../Projects/NGO/Builds/Benchmark.exe",
+        r"../Projects/ProteusNet/Builds/Benchmark.exe",
+        r"../Projects/NGO/Builds/Benchmark.exe",
         r"../Projects/FishNet/Builds/Benchmark.exe",
-        #r"../Projects/Mirror/Builds/Benchmark.exe"
+        r"../Projects/Mirror/Builds/Benchmark.exe"
     ]
-    WARMUPS = 0
-    RUNS = 15
+    WARMUPS = 5
+    RUNS = 25
     NUM_CLIENTS = 3
-    START_OBJECTS = 73
+    START_OBJECTS = 1
     END_OBJECTS = 100
     CONFIDENCE_LEVEL = 0.99
     UDP_PORT = 24856  # Replace with the port number used by the frameworks
@@ -126,10 +126,9 @@ def main():
         print(f"Completed all benchmarks.")
 
 def benchmark(harness: BenchmarkHarnessBase):
-    time.sleep(1)
-    #harness.directional_input(0, 0.0,  1.0,  3)
-    #harness.directional_input(0, 1.0, -1.0,  1)
-    #harness.directional_input(1, 0.0,  1.0,  5)
+    harness.directional_input(0, 0.0,  1.0,  3)
+    harness.directional_input(0, 1.0, -1.0,  1)
+    harness.directional_input(1, 0.0,  1.0,  5)
 
 def capture_traffic(cancel_event, results, port, interface):
     # Create an event loop in this thread

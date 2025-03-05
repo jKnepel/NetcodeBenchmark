@@ -8,13 +8,13 @@ from benchmark_harness import BenchmarkHarnessNetwork, BenchmarkHarnessLocal, Be
 
 def main():
     PROCESS_PATHS = [
-        #r"../Projects/ProteusNet/Builds/Benchmark.exe",
-        #r"../Projects/NGO/Builds/Benchmark.exe",
+        r"../Projects/ProteusNet/Builds/Benchmark.exe",
+        r"../Projects/NGO/Builds/Benchmark.exe",
         r"../Projects/FishNet/Builds/Benchmark.exe",
-        #r"../Projects/Mirror/Builds/Benchmark.exe"
+        r"../Projects/Mirror/Builds/Benchmark.exe"
     ]
-    WARMUPS = 0
-    RUNS = 2 # must be atleast 2 for mean computation
+    WARMUPS = 5
+    RUNS = 25 # must be atleast 2 for mean computation
     NUM_CLIENTS = 3
     START_OBJECTS = 49
     END_OBJECTS = 49
@@ -30,8 +30,8 @@ def main():
 
     with open(r"benchmark_visuals_results.csv", mode='a', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
-        '''
         csv_writer.writerow([
+            "Process",
             "Number of Objects", 
             "Runs",
             "Mean Server Diff", 
@@ -43,12 +43,10 @@ def main():
             "Error Clients Diff",
             "CI Clients Diff"
         ])
-        '''
-
 
         for path in PROCESS_PATHS:
             local = BenchmarkHarnessLocal(r"../Projects/Local/Builds/Benchmark.exe", NUM_CLIENTS)
-            network = BenchmarkHarnessNetwork(r"../Projects/ProteusNet/Builds/Benchmark.exe", NUM_CLIENTS)
+            network = BenchmarkHarnessNetwork(path, NUM_CLIENTS)
 
             LOCAL_VIDEO_PATH = "local.avi"
             SERVER_VIDEO_PATH = "network_server.avi"
@@ -96,6 +94,7 @@ def main():
                 ci_client_diff = compute_confidence_interval(avg_client_diff, std_client_diff, RUNS, CONFIDENCE_LEVEL)
 
                 csv_writer.writerow([
+                    path,
                     num_objects,
                     RUNS,
                     avg_server_diff,
@@ -114,9 +113,9 @@ def main():
         print(f"Completed all benchmarks.")
 
 def benchmark(harness: BenchmarkHarnessBase):
-    harness.directional_input(0, 0.0, 1.0, 2)
-    harness.directional_input(0, 0.5, 0.0, 2)
-    harness.directional_input(0, -0.5, 0.0, 4)
+    harness.directional_input(0, 0.0,  1.0,  3)
+    harness.directional_input(0, 1.0, -1.0,  1)
+    harness.directional_input(1, 0.0,  1.0,  5)
 
 def compute_difference(video1_path: str, video2_path: str):
     capture1 = cv2.VideoCapture(video1_path)
