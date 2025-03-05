@@ -11,15 +11,15 @@ from benchmark_harness import BenchmarkHarnessNetwork, BenchmarkHarnessBase
 
 def main():
     PROCESS_PATHS = [
-        r"../Projects/ProteusNet/Builds/Benchmark.exe",
-        r"../Projects/NGO/Builds/Benchmark.exe",
+        #r"../Projects/ProteusNet/Builds/Benchmark.exe",
+        #r"../Projects/NGO/Builds/Benchmark.exe",
         r"../Projects/FishNet/Builds/Benchmark.exe",
-        r"../Projects/Mirror/Builds/Benchmark.exe"
+        #r"../Projects/Mirror/Builds/Benchmark.exe"
     ]
-    WARMUPS = 5
-    RUNS = 25 
+    WARMUPS = 0
+    RUNS = 15
     NUM_CLIENTS = 3
-    START_OBJECTS = 1
+    START_OBJECTS = 73
     END_OBJECTS = 100
     CONFIDENCE_LEVEL = 0.99
     UDP_PORT = 24856  # Replace with the port number used by the frameworks
@@ -35,7 +35,7 @@ def main():
 
     with open(r"benchmark_traffic_results.csv", mode='a', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
-        '''
+        """
         csv_writer.writerow([
             "Process",
             "Number of Objects", 
@@ -53,7 +53,7 @@ def main():
             "Error Total Packets", 
             "CI Total Packets"
         ])
-        '''
+        """
 
         for path in PROCESS_PATHS:
             harness = BenchmarkHarnessNetwork(path, NUM_CLIENTS)
@@ -92,17 +92,15 @@ def main():
                 avg_bytes_to_server = np.mean(bytes_to_server)
                 avg_bytes_from_server = np.mean(bytes_from_server)
                 avg_total_bytes = np.mean(total_bytes)
-                std_total_bytes = np.std(total_bytes, ddof=1)  # Sample standard deviation
+                std_total_bytes = np.std(total_bytes, ddof=1)
                 err_total_bytes = std_total_bytes / math.sqrt(RUNS)
+                ci_total_bytes = compute_confidence_interval(avg_total_bytes, std_total_bytes, RUNS, CONFIDENCE_LEVEL)
 
                 avg_packets_to_server = np.mean(packets_to_server)
                 avg_packets_from_server = np.mean(packets_from_server)
                 avg_total_packets = np.mean(total_packets)
-                std_total_packets = np.std(total_packets, ddof=1)  # Sample standard deviation
+                std_total_packets = np.std(total_packets, ddof=1)
                 err_total_packets = std_total_packets / math.sqrt(RUNS)
-
-                # Compute confidence intervals
-                ci_total_bytes = compute_confidence_interval(avg_total_bytes, std_total_bytes, RUNS, CONFIDENCE_LEVEL)
                 ci_total_packets = compute_confidence_interval(avg_total_packets, std_total_packets, RUNS, CONFIDENCE_LEVEL)
 
                 csv_writer.writerow([
@@ -114,13 +112,13 @@ def main():
                     avg_total_bytes,
                     std_total_bytes,
                     err_total_bytes,
-                    f"{str(ci_total_bytes[0]), str(ci_total_bytes[1])}",
+                    f"{str(ci_total_bytes[0])}-{str(ci_total_bytes[1])}",
                     avg_packets_to_server,
                     avg_packets_from_server,
                     avg_total_packets,
                     std_total_packets,
                     err_total_packets,
-                    f"{str(ci_total_packets[0]), str(ci_total_packets[1])}",
+                    f"{str(ci_total_packets[0])}-{str(ci_total_packets[1])}",
                 ])
 
             del harness
@@ -128,9 +126,10 @@ def main():
         print(f"Completed all benchmarks.")
 
 def benchmark(harness: BenchmarkHarnessBase):
-    harness.directional_input(0, 0.0,  1.0,  3)
-    harness.directional_input(0, 1.0, -1.0,  1)
-    harness.directional_input(1, 0.0,  1.0,  5)
+    time.sleep(1)
+    #harness.directional_input(0, 0.0,  1.0,  3)
+    #harness.directional_input(0, 1.0, -1.0,  1)
+    #harness.directional_input(1, 0.0,  1.0,  5)
 
 def capture_traffic(cancel_event, results, port, interface):
     # Create an event loop in this thread

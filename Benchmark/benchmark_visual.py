@@ -3,14 +3,26 @@ import os
 import csv
 import cv2
 import numpy as np
+import math
 from benchmark_harness import BenchmarkHarnessNetwork, BenchmarkHarnessLocal, BenchmarkHarnessBase
 
 def main():
+    PROCESS_PATHS = [
+        #r"../Projects/ProteusNet/Builds/Benchmark.exe",
+        #r"../Projects/NGO/Builds/Benchmark.exe",
+        r"../Projects/FishNet/Builds/Benchmark.exe",
+        #r"../Projects/Mirror/Builds/Benchmark.exe"
+    ]
     WARMUPS = 0
     RUNS = 2 # must be atleast 2 for mean computation
     NUM_CLIENTS = 3
     START_OBJECTS = 49
     END_OBJECTS = 49
+    CONFIDENCE_LEVEL = 0.99
+
+    if (RUNS < 2):
+        print("Runs must be larger than 1 to compute meaningful means and CI!")
+        return
 
     # Change working directory to current file
     script_directory = os.path.dirname(os.path.abspath(__file__)) 
@@ -24,74 +36,82 @@ def main():
             "Runs",
             "Mean Server Diff", 
             "StdDev Server Diff", 
-            "Error Server Diff", 
+            "Error Server Diff",
+            "CI Server Diff",
             "Mean Clients Diff", 
             "StdDev Clients Diff", 
             "Error Clients Diff",
+            "CI Clients Diff"
         ])
         '''
 
-        local = BenchmarkHarnessLocal(r"../Projects/Local/Builds/Benchmark.exe", NUM_CLIENTS)
-        network = BenchmarkHarnessNetwork(r"../Projects/ProteusNet/Builds/Benchmark.exe", NUM_CLIENTS)
 
-        LOCAL_VIDEO_PATH = "local.avi"
-        SERVER_VIDEO_PATH = "network_server.avi"
-        CLIENTS_VIDEO_PATH = [f"network_client_{i}.avi" for i in range(NUM_CLIENTS)]
+        for path in PROCESS_PATHS:
+            local = BenchmarkHarnessLocal(r"../Projects/Local/Builds/Benchmark.exe", NUM_CLIENTS)
+            network = BenchmarkHarnessNetwork(r"../Projects/ProteusNet/Builds/Benchmark.exe", NUM_CLIENTS)
 
-        for num_objects in range(START_OBJECTS, END_OBJECTS + 1, 1):
+            LOCAL_VIDEO_PATH = "local.avi"
+            SERVER_VIDEO_PATH = "network_server.avi"
+            CLIENTS_VIDEO_PATH = [f"network_client_{i}.avi" for i in range(NUM_CLIENTS)]
 
-            # Run the local baseline benchmark
-            local.start(num_objects)
-            local.process.start_capture(LOCAL_VIDEO_PATH)
-            benchmark(local)
-            local.process.stop_capture()
-            local.stop()
-            
-            server_diffs = []
-            client_diffs = []
+            for num_objects in range(START_OBJECTS, END_OBJECTS + 1, 1):
 
-            for i in range(1, WARMUPS + RUNS + 1, 1): 
+                # Run the local baseline benchmark
+                local.start(num_objects)
+                local.process.start_capture(LOCAL_VIDEO_PATH)
+                benchmark(local)
+                local.process.stop_capture()
+                local.stop()
+                
+                server_diffs = []
+                client_diffs = []
 
-                # Run the network benchmark
-                network.start(num_objects)
-                network.server.start_capture(SERVER_VIDEO_PATH)
-                for j, client in enumerate(network.clients):
-                    client.start_capture(CLIENTS_VIDEO_PATH[j])
-                benchmark(network)
-                for client in network.clients:
-                    client.stop_capture()
-                network.server.stop_capture()
-                network.stop()
+                for i in range(1, WARMUPS + RUNS + 1, 1): 
 
-                # Only include results if warmups are done
-                if i > WARMUPS:
-                    # Compute and save differences between videos
-                    server_diffs.append(compute_difference(SERVER_VIDEO_PATH, LOCAL_VIDEO_PATH))
-                    client_diffs.append(compute_difference(compute_average_videos(CLIENTS_VIDEO_PATH), LOCAL_VIDEO_PATH))
+                    # Run the network benchmark
+                    network.start(num_objects)
+                    network.server.start_capture(SERVER_VIDEO_PATH)
+                    for j, client in enumerate(network.clients):
+                        client.start_capture(CLIENTS_VIDEO_PATH[j])
+                    benchmark(network)
+                    for client in network.clients:
+                        client.stop_capture()
+                    network.server.stop_capture()
+                    network.stop()
 
-            # Compute averages
-            avg_server_diff = np.mean(server_diffs)
-            std_server_diff = np.std(server_diffs, ddof=1)
-            err_server_diff = std_server_diff / np.sqrt(RUNS)
-            avg_client_diff = np.mean(client_diffs)
-            std_client_diff = np.std(client_diffs, ddof=1)
-            err_client_diff = std_client_diff / np.sqrt(RUNS)
+                    # Only include results if warmups are done
+                    if i > WARMUPS:
+                        # Compute and save differences between videos
+                        server_diffs.append(compute_difference(SERVER_VIDEO_PATH, LOCAL_VIDEO_PATH))
+                        client_diffs.append(compute_difference(compute_average_videos(CLIENTS_VIDEO_PATH), LOCAL_VIDEO_PATH))
 
-            csv_writer.writerow([
-                num_objects,
-                RUNS,
-                avg_server_diff,
-                std_server_diff,
-                err_server_diff,
-                avg_client_diff,
-                std_client_diff,
-                err_client_diff
-            ])
+                # Compute averages
+                avg_server_diff = np.mean(server_diffs)
+                std_server_diff = np.std(server_diffs, ddof=1)
+                err_server_diff = std_server_diff / np.sqrt(RUNS)
+                ci_server_diff = compute_confidence_interval(avg_server_diff, std_server_diff, RUNS, CONFIDENCE_LEVEL)
+                avg_client_diff = np.mean(client_diffs)
+                std_client_diff = np.std(client_diffs, ddof=1)
+                err_client_diff = std_client_diff / np.sqrt(RUNS)
+                ci_client_diff = compute_confidence_interval(avg_client_diff, std_client_diff, RUNS, CONFIDENCE_LEVEL)
 
-        del local
-        del network
+                csv_writer.writerow([
+                    num_objects,
+                    RUNS,
+                    avg_server_diff,
+                    std_server_diff,
+                    err_server_diff,
+                    f"{str(ci_server_diff[0])}-{str(ci_client_diff[1])}",
+                    avg_client_diff,
+                    std_client_diff,
+                    err_client_diff,
+                    f"{str(ci_client_diff[0])}-{str(ci_client_diff[1])}",
+                ])
 
-    print(f"Completed benchmark.")
+            del network
+            del local
+            print(f"Completed benchmark.")    
+        print(f"Completed all benchmarks.")
 
 def benchmark(harness: BenchmarkHarnessBase):
     harness.directional_input(0, 0.0, 1.0, 2)
@@ -167,6 +187,17 @@ def compute_average_videos(videos: list[str]):
         return avg_video_path
     else:
         print("Failed to compute average videos.")
+
+def compute_confidence_interval(mean, std_dev, n, confidence=0.99):
+    # Approximate t-critical value for df = 25 - 1 from https://people.richland.edu/james/lecture/m170/tbl-t.html
+    t_critical = {
+        0.90: 1.711,  # 90% confidence
+        0.95: 2.064,  # 95% confidence
+        0.99: 2.797   # 99% confidence
+    }.get(confidence)
+
+    margin_of_error = t_critical * (std_dev / math.sqrt(n))
+    return (mean - margin_of_error, mean + margin_of_error)
 
 if __name__ == "__main__":
     sys.exit(main())
