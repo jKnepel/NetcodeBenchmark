@@ -56,6 +56,9 @@ namespace jKnepel.NetcodeBenchmark.Projects.Mirror
         public override void OnStopServer()
         {
             base.OnStopServer();
+            
+            NetworkServer.OnConnectedEvent -= SpawnClient;
+            NetworkServer.OnDisconnectedEvent -= DespawnClient;
             foreach (var obj in _networkObjects)
             {
                 if (obj != null)

@@ -13,8 +13,8 @@ def main():
         r"../Projects/FishNet/Builds/Benchmark.exe",
         r"../Projects/Mirror/Builds/Benchmark.exe"
     ]
-    WARMUPS = 5
-    RUNS = 25 # must be atleast 2 for mean computation
+    WARMUPS = 0
+    RUNS = 2
     NUM_CLIENTS = 3
     START_OBJECTS = 49
     END_OBJECTS = 49

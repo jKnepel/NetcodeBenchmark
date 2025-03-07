@@ -91,7 +91,7 @@ class BenchmarkHarnessLocal(BenchmarkHarnessBase):
         self.process.send_data(BenchmarkCommands.DirectionalInput.value + struct.pack('i', client_idx) + struct.pack('f', 0) + struct.pack('f', 0))
 
 class BenchmarkConnection:
-    def __init__(self, process_path, startup='', host='127.0.0.1', fps=30):
+    def __init__(self, process_path, startup='', host='127.0.0.1', fps=60):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((host, 0))
         self.socket.listen(1)
