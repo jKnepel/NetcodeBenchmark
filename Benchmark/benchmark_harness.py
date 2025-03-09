@@ -36,7 +36,11 @@ class BenchmarkHarnessBase(ABC):
         pass
 
     @abstractmethod
-    def directional_input(self, client_idx: int, right: float, up: float, duration: float):
+    def directional_input_server(self, right: float, up: float):
+        pass
+
+    @abstractmethod
+    def directional_input_client(self, client_idx: int, right: float, up: float):
         pass
 
 class BenchmarkHarnessNetwork(BenchmarkHarnessBase):
@@ -62,8 +66,11 @@ class BenchmarkHarnessNetwork(BenchmarkHarnessBase):
             client.stop_client()
         self.server.stop_server()
 
-    def directional_input(self, client_idx: int, right: float, up: float, duration: float):
-        self.clients[client_idx].directional_input(right, up, duration)
+    def directional_input_server(self, right: float, up: float):
+        self.server.send_data(BenchmarkCommands.DirectionalInput.value + struct.pack('f', right) + struct.pack('f', up))
+
+    def directional_input_client(self, client_idx: int, right: float, up: float):
+        self.clients[client_idx].send_data(BenchmarkCommands.DirectionalInput.value + struct.pack('f', right) + struct.pack('f', up))
 
 class BenchmarkHarnessLocal(BenchmarkHarnessBase):
     def __init__(self, process_path,  num_clients, startup='', host='127.0.0.1'):
@@ -85,13 +92,14 @@ class BenchmarkHarnessLocal(BenchmarkHarnessBase):
             self.process.stop_client()
         self.process.stop_server()
 
-    def directional_input(self, client_idx: int, right: float, up: float, duration: float):
+    def directional_input_server(self, right: float, up: float):
+        self.process.send_data(BenchmarkCommands.DirectionalInput.value + struct.pack('i', -1) + struct.pack('f', right) + struct.pack('f', up))
+
+    def directional_input_client(self, client_idx: int, right: float, up: float):
         self.process.send_data(BenchmarkCommands.DirectionalInput.value + struct.pack('i', client_idx) + struct.pack('f', right) + struct.pack('f', up))
-        time.sleep(duration)
-        self.process.send_data(BenchmarkCommands.DirectionalInput.value + struct.pack('i', client_idx) + struct.pack('f', 0) + struct.pack('f', 0))
 
 class BenchmarkConnection:
-    def __init__(self, process_path, startup='', host='127.0.0.1', fps=60):
+    def __init__(self, process_path, startup='', host='127.0.0.1', fps=30):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((host, 0))
         self.socket.listen(1)
@@ -143,10 +151,6 @@ class BenchmarkConnection:
         self.send_data(BenchmarkCommands.StartClient.value)
     def stop_client(self):
         self.send_data(BenchmarkCommands.StopClient.value)
-    def directional_input(self, right: float, up: float, duration: float):
-        self.send_data(BenchmarkCommands.DirectionalInput.value + struct.pack('f', right) + struct.pack('f', up))
-        time.sleep(duration)
-        self.send_data(BenchmarkCommands.DirectionalInput.value + struct.pack('f', 0) + struct.pack('f', 0))
 
     def send_data(self, data: bytes):
         if self.connection:
@@ -157,20 +161,27 @@ class BenchmarkConnection:
         else:
             print("No client connection available to send data.")
 
-    def start_capture(self, output_video_path):
+    def start_capture(self, output_video_path: str):
         def capture():
             self.capture_active = True
             capture_video_writer = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'XVID'), self.fps, (self.width, self.height))
 
             print("Capture started.")
+            frame_interval = 1.0 / self.fps
+            next_frame_time = time.time()  # Fixed time reference
+
             while self.capture_active:
                 frame = self.capture_window()
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                 capture_video_writer.write(frame)
 
+                # Wait until the next frame time
+                next_frame_time += frame_interval
+                sleep_time = max(0, next_frame_time - time.time())
+                time.sleep(sleep_time)
+
             print("Capture stopped.")
             capture_video_writer.release()
-            capture_video_writer = None
 
         # Create and start the capture thread
         self.capture_thread = threading.Thread(target=capture)
